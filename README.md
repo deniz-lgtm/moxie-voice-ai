@@ -5,7 +5,7 @@ Standalone after-hours voice AI system for Moxie Management. Replaces AnswerConn
 ## Features
 
 - 24/7 after-hours call handling
-- Emergency detection and escalation
+- Emergency detection and immediate call transfer to on-call team
 - Maintenance request intake
 - Leasing inquiry handling
 - Tenant support
@@ -16,10 +16,28 @@ Standalone after-hours voice AI system for Moxie Management. Replaces AnswerConn
 ## Tech Stack
 
 - Next.js 14 + TypeScript
-- Bland AI (voice agent)
+- Vapi (voice AI — handles calls, extracts structured data, transfers emergencies)
 - Twilio (SMS notifications)
 - Resend (email notifications)
 - Vercel (hosting)
+
+## How It Works
+
+```
+Forwarded call → Vapi AI assistant handles conversation
+                      ↓
+          Collects name, phone, property, issue
+                      ↓
+          Emergency?
+          ├── YES → Transfer to on-call team immediately
+          └── NO  → Collect info, end call
+                      ↓
+          Vapi fires end-of-call webhook (with transcript + structured data)
+                      ↓
+          /api/webhook/vapi processes it
+          ├── Emergency → SMS to EMERGENCY_SMS_NUMBER
+          └── All calls → Email to NOTIFICATION_EMAIL
+```
 
 ## Setup
 
@@ -33,20 +51,10 @@ npm install
 
 ### 2. Environment Variables
 
-Create `.env.local`:
+Copy `.env.local.example` to `.env.local` and fill in your values:
 
-```env
-# Twilio (for SMS notifications)
-TWILIO_ACCOUNT_SID=your_twilio_account_sid
-TWILIO_AUTH_TOKEN=your_twilio_auth_token
-TWILIO_PHONE_NUMBER=your_twilio_phone_number
-
-# Resend (for email notifications)
-RESEND_API_KEY=your_resend_api_key
-
-# Team Notifications
-EMERGENCY_SMS_NUMBER=+15033813891
-NOTIFICATION_EMAIL=deniz@bradmanagement.com
+```bash
+cp .env.local.example .env.local
 ```
 
 ### 3. Deploy to Vercel
@@ -55,50 +63,57 @@ NOTIFICATION_EMAIL=deniz@bradmanagement.com
 vercel --prod
 ```
 
-Copy the deployed URL (e.g., `https://moxie-voice-ai.vercel.app`)
+Copy the deployed URL (e.g., `https://moxie-voice-ai.vercel.app`). You'll need it for the Vapi webhook.
 
-### 4. Configure Bland AI
+### 4. Create the Vapi Assistant
 
-1. Go to https://bland.ai
-2. Create agent named "Moxie After-Hours"
-3. Choose voice: Nova or Shimmer
-4. Paste the prompt from `PROMPT.md`
-5. Add webhook URL: `https://your-vercel-url.vercel.app/api/webhook/bland`
-6. Add transfer number for emergencies
-7. Get a phone number (or forward your existing after-hours line)
+1. Sign up at [vapi.ai](https://vapi.ai)
+2. Go to **Assistants** → **Create Assistant**
+3. In the top-right, click **Import** and paste the contents of `vapi-assistant.json`
+4. Update the `transferCall` tool destination number (`+1XXXXXXXXXX`) to your actual emergency on-call number
+5. Save the assistant
 
-### 5. Test
+### 5. Add a Phone Number in Vapi
 
-Call the Bland number and test:
-- Emergency: "I have a water leak" → Should transfer + SMS
-- Routine: "My AC is broken" → Should collect info + email summary
-- Leasing: "I want to schedule a tour" → Should collect info + email
+1. Go to **Phone Numbers** → **Buy Number** (or import your own Twilio number)
+2. Assign the assistant you just created to the number
+3. Forward your after-hours line to this Vapi number
 
-## Bland AI Prompt
+### 6. Configure the Webhook
 
-See `PROMPT.md` for the complete prompt to paste into Bland.
+1. In Vapi, go to **Account** → **Webhooks** (or set it on the assistant)
+2. Set the webhook URL to: `https://your-vercel-url.vercel.app/api/webhook/vapi`
+3. Copy the webhook secret and add it to your Vercel env vars as `VAPI_WEBHOOK_SECRET`
 
-## Notification Flow
+### 7. Add Env Vars to Vercel
 
-```
-Call comes in → Bland AI handles it → Webhook receives call data
-                                    ↓
-                    ┌───────────────┴───────────────┐
-                    ↓                               ↓
-            If EMERGENCY:                     All calls:
-            SMS to EMERGENCY_SMS_NUMBER         Email to NOTIFICATION_EMAIL
-            (immediate alert)                   (full transcript + recording)
-```
+In your Vercel project settings → Environment Variables, add all values from `.env.local`.
+
+### 8. Test
+
+Call the Vapi number and test:
+- **Emergency:** "I have a water leak" → Should transfer + trigger SMS alert
+- **Routine:** "My AC is broken" → Should collect info + email summary
+- **Leasing:** "I want to schedule a tour" → Should collect info + email
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `src/app/api/webhook/vapi/route.ts` | Webhook handler — receives call data from Vapi and sends notifications |
+| `vapi-assistant.json` | Vapi assistant configuration — import into Vapi dashboard |
+| `PROMPT.md` | The AI conversation prompt (embedded in `vapi-assistant.json`) |
+| `.env.local.example` | Environment variable template |
 
 ## Cost Estimate
 
 | Service | Cost |
 |---------|------|
-| Bland AI | $0.09/minute (~$50-100/month) |
+| Vapi | ~$0.05/min (~$25-60/month) |
 | Twilio SMS | $0.0075/message (~$5/month) |
 | Resend Email | Free tier (100/day) |
 | Vercel | Free tier |
-| **Total** | **~$55-105/month** |
+| **Total** | **~$30-65/month** |
 
 Compare to AnswerConnect: ~$500-1000/month
 
