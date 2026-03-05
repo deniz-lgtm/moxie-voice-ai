@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     });
 
     const emergencyPhone = process.env.EMERGENCY_SMS_NUMBER || "+15033813891";
-    const notificationEmail = process.env.NOTIFICATION_EMAIL || "deniz@bradmanagement.com";
+    const notificationEmail = process.env.NOTIFICATION_EMAIL || "deniz@djaco.dev";
 
     // Emergency SMS — send immediately, short enough to read at a glance
     if (isEmergency) {
