@@ -74,7 +74,7 @@ async function sendEmail(to: string, subject: string, html: string) {
       Authorization: `Bearer ${resendApiKey}`,
     },
     body: JSON.stringify({
-      from: "Moxie Voice AI <onboarding@resend.dev>",
+      from: "onboarding@resend.dev",
       to,
       subject,
       html,
@@ -88,6 +88,16 @@ async function sendEmail(to: string, subject: string, html: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Quick test: POST with header x-test: true to verify email works
+    if (request.headers.get("x-test") === "true") {
+      await sendEmail(
+        "deniz@bradmanagement.com",
+        "Resend test ✅",
+        "<p>If you got this, Resend works.</p>"
+      );
+      return NextResponse.json({ ok: true });
+    }
+
     const rawBody = await request.text();
     const payload: VapiWebhookPayload = JSON.parse(rawBody);
     const message = payload.message;
