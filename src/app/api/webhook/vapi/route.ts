@@ -84,7 +84,7 @@ async function sendEmail(to: string, subject: string, html: string) {
       Authorization: `Bearer ${resendApiKey}`,
     },
     body: JSON.stringify({
-      from: "Moxie Voice AI <calls@moxiepm.com>",
+      from: "Moxie Voice AI <calls@moxiusc.com>",
       to,
       subject,
       html,
