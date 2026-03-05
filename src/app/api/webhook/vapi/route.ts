@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 
 // Structured data Vapi extracts from the conversation transcript
 interface CallerData {
@@ -31,15 +30,6 @@ interface VapiEndOfCallReport {
 
 interface VapiWebhookPayload {
   message: { type: string } & Partial<VapiEndOfCallReport>;
-}
-
-function verifySignature(rawBody: string, signature: string, secret: string): boolean {
-  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
-  try {
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
-  } catch {
-    return false;
-  }
 }
 
 async function sendSMS(to: string, message: string) {
@@ -84,7 +74,7 @@ async function sendEmail(to: string, subject: string, html: string) {
       Authorization: `Bearer ${resendApiKey}`,
     },
     body: JSON.stringify({
-      from: "Moxie Voice AI <onboarding@resend.dev>",
+      from: "onboarding@resend.dev",
       to,
       subject,
       html,
@@ -98,18 +88,17 @@ async function sendEmail(to: string, subject: string, html: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const rawBody = await request.text();
-
-    // Verify Vapi webhook signature if secret is configured
-    const webhookSecret = process.env.VAPI_WEBHOOK_SECRET;
-    if (webhookSecret) {
-      const signature = request.headers.get("x-vapi-signature") ?? "";
-      if (!signature || !verifySignature(rawBody, signature, webhookSecret)) {
-        console.error("Invalid Vapi webhook signature");
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
+    // Quick test: POST with header x-test: true to verify email works
+    if (request.headers.get("x-test") === "true") {
+      await sendEmail(
+        "deniz@djaco.dev",
+        "Resend test ✅",
+        "<p>If you got this, Resend works.</p>"
+      );
+      return NextResponse.json({ ok: true });
     }
 
+    const rawBody = await request.text();
     const payload: VapiWebhookPayload = JSON.parse(rawBody);
     const message = payload.message;
 
